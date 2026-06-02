@@ -199,8 +199,7 @@ function App() {
   const [don1, setDon1] = useState('');
   const [don2, setDon2] = useState('');
 
-  if (!auth) return <LoginScreen onOk={() => setAuth(true)} />;
-
+  // inc defined here so useMemo (hook) stays before any conditional return
   const inc = toNum(income);
 
   const calc = useMemo(() => {
@@ -277,6 +276,9 @@ function App() {
   }, [incType, income, otherInc, wht, spouse, children, pregnancy, parents, disabledPpl,
       lifeIns, healthIns, parentHealth, annuity, socSec, pvd, rmf, gpf, nsf, esg,
       mortgage, newHouse, eReceipt, travelType, travelAmt, don1, don2]);
+
+  // Early return AFTER all hooks
+  if (!auth) return <LoginScreen onOk={() => setAuth(true)} />;
 
   const reset = () => {
     setIncType('40_1'); setIncome(''); setOtherInc(''); setWht('');
