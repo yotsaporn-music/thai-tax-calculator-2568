@@ -21,6 +21,109 @@
   <style>
     body { font-family: 'Sarabun', sans-serif; }
     * { -webkit-tap-highlight-color: transparent; }
+
+    /* ═══════ PRINT STYLES ═══════ */
+    @page {
+      size: A4;
+      margin: 12mm 14mm;
+    }
+
+    @media print {
+      body { background: #fff !important; font-size: 11pt; }
+
+      /* hide everything that shouldn't print */
+      .no-print { display: none !important; }
+
+      /* force all accordion sections open */
+      .print-section-content { display: block !important; }
+
+      /* summary cards: 2-column grid */
+      .print-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+      .print-card {
+        border: 1.5px solid #f9a8d4;
+        border-radius: 8px;
+        padding: 8px 12px;
+        background: #fff;
+        page-break-inside: avoid;
+      }
+      .print-card.pink { background: #fdf2f8; }
+      .print-card p.label { font-size: 8pt; color: #6b7280; margin: 0 0 2px; }
+      .print-card p.value { font-size: 14pt; font-weight: 700; color: #000; margin: 0; }
+
+      /* result banner */
+      .print-banner {
+        border-radius: 8px;
+        padding: 10px 14px;
+        text-align: center;
+        margin-bottom: 12px;
+        page-break-inside: avoid;
+      }
+      .print-banner.due   { border: 2px solid #fca5a5; background: #fff1f2; }
+      .print-banner.refund { border: 2px solid #86efac; background: #f0fdf4; }
+      .print-banner .banner-label { font-size: 9pt; color: #6b7280; margin: 0 0 2px; }
+      .print-banner .banner-amount { font-size: 20pt; font-weight: 700; margin: 0; }
+      .print-banner.due   .banner-amount { color: #dc2626; }
+      .print-banner.refund .banner-amount { color: #16a34a; }
+
+      /* section headers */
+      .print-sec-header {
+        background: #fce7f3;
+        border-radius: 6px 6px 0 0;
+        padding: 5px 10px;
+        font-weight: 700;
+        font-size: 10pt;
+        color: #000;
+        border: 1px solid #fbcfe8;
+        margin-top: 10px;
+      }
+      .print-sec-body {
+        border: 1px solid #fbcfe8;
+        border-top: none;
+        border-radius: 0 0 6px 6px;
+        padding: 8px 10px;
+        background: #fff;
+        page-break-inside: avoid;
+      }
+
+      /* calc rows */
+      .calc-row { display: flex; justify-content: space-between; padding: 1.5px 0; font-size: 9.5pt; }
+      .calc-row.indent { padding-left: 14px; }
+      .calc-row.bold { font-weight: 600; }
+      .calc-row.highlight { background: #fdf2f8; padding: 3px 6px; border-radius: 4px; font-weight: 700; color: #9d174d; }
+      .calc-row.red { color: #dc2626; font-weight: 700; }
+      .calc-row.green { color: #16a34a; font-weight: 700; }
+      .calc-row.dim span:first-child { color: #6b7280; }
+      .divider { border: none; border-top: 1px solid #fbcfe8; margin: 4px 0; }
+      .divider.dark { border-top: 1.5px solid #000; }
+
+      /* bracket table */
+      .bracket-table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+      .bracket-table th { background: #fce7f3; padding: 4px 6px; text-align: left; border: 1px solid #fbcfe8; font-weight: 600; }
+      .bracket-table td { padding: 3px 6px; border: 1px solid #fbcfe8; }
+      .bracket-table tr.active { background: #f9a8d4; font-weight: 700; }
+      .bracket-table tr.used { background: #fdf2f8; }
+      .bracket-table tfoot td { background: #fce7f3; font-weight: 700; }
+
+      /* disclaimer */
+      .print-disclaimer {
+        margin-top: 12px;
+        font-size: 7.5pt;
+        color: #9ca3af;
+        border-top: 1px dashed #fbcfe8;
+        padding-top: 6px;
+      }
+
+      /* print header */
+      .print-header { text-align: center; margin-bottom: 14px; page-break-after: avoid; }
+      .print-header h1 { font-size: 15pt; font-weight: 700; color: #000; margin: 0 0 2px; }
+      .print-header p { font-size: 9pt; color: #be185d; margin: 0; }
+      .print-header .date-line { font-size: 8pt; color: #9ca3af; margin-top: 2px; }
+    }
+
+    /* screen: hide print-only elements */
+    @media screen {
+      .print-only { display: none !important; }
+    }
   </style>
 </head>
 <body class="bg-pink-50">
@@ -112,11 +215,12 @@ function Sec({ title, children, open: defaultOpen = false }) {
   return (
     <div className="mb-4 rounded-xl border border-pink-200 overflow-hidden shadow-sm">
       <button type="button" onClick={() => setOpen(o => !o)}
-        className="w-full flex justify-between items-center px-4 py-3 bg-pink-100 hover:bg-pink-200 transition-colors">
+        className="no-print w-full flex justify-between items-center px-4 py-3 bg-pink-100 hover:bg-pink-200 transition-colors">
         <span className="font-semibold text-black text-sm md:text-base">{title}</span>
         <span className="text-pink-600 text-sm ml-2 flex-shrink-0">{open ? '▲' : '▼'}</span>
       </button>
-      {open && <div className="p-4 bg-white">{children}</div>}
+      {/* always render content — CSS controls visibility on screen; print always shows */}
+      <div className={`print-section-content p-4 bg-white ${open ? '' : 'hidden'}`}>{children}</div>
     </div>
   );
 }
@@ -294,15 +398,15 @@ function App() {
     <div className="min-h-screen bg-pink-50 py-6 px-4">
       <div className="max-w-2xl mx-auto">
 
-        {/* Header */}
-        <div className="text-center mb-6">
+        {/* Header — screen only */}
+        <div className="no-print text-center mb-6">
           <h1 className="text-xl md:text-2xl font-bold text-black">🧾 เครื่องคิดเลขภาษีเงินได้บุคคลธรรมดา</h1>
           <p className="text-pink-600 font-semibold mt-1">ปีภาษี 2568 (ยื่นภาษีปี 2569)</p>
           <p className="text-xs text-gray-400 mt-0.5">อ้างอิง ประมวลรัษฎากร ม.40, 47, 48 | สำหรับบุคคลภายในเท่านั้น</p>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-2 gap-3 mb-4">
+        {/* Summary Cards — screen only */}
+        <div className="no-print grid grid-cols-2 gap-3 mb-4">
           {[
             { label: 'รายได้รวมทั้งสิ้น', val: `฿${fmt(calc.gross)}` },
             { label: 'ค่าลดหย่อนรวม', val: `฿${fmt(calc.totalD)}` },
@@ -316,8 +420,8 @@ function App() {
           ))}
         </div>
 
-        {/* Result Banner */}
-        <div className={`rounded-xl p-4 mb-6 border-2 text-center shadow-sm
+        {/* Result Banner — screen only */}
+        <div className={`no-print rounded-xl p-4 mb-6 border-2 text-center shadow-sm
           ${calc.taxDue > 0 ? 'bg-red-50 border-red-300' : calc.taxDue < 0 ? 'bg-green-50 border-green-300' : 'bg-white border-pink-200'}`}>
           <p className="text-sm text-gray-500 mb-1">
             {calc.taxDue > 0 ? '💸 ภาษีที่ต้องชำระเพิ่ม' : calc.taxDue < 0 ? '✅ ภาษีที่ขอคืนได้' : '✔️ ไม่มียอดชำระ/คืน'}
@@ -331,6 +435,9 @@ function App() {
             </p>
           )}
         </div>
+
+        {/* Input Sections — screen only */}
+        <div className="no-print">
 
         {/* SECTION 1 */}
         <Sec title="หมวด 1 · รายได้" open={true}>
@@ -565,23 +672,155 @@ function App() {
           {calc.netInc > 0 && <p className="text-xs text-pink-600 mt-2 text-center">ช่องสีชมพูเข้ม = ช่วงที่เงินได้สุทธิของคุณตกอยู่</p>}
         </Sec>
 
+        </div>{/* end no-print input sections */}
+
         {/* Buttons */}
-        <div className="flex gap-3 mt-2 mb-4">
+        <div className="no-print flex gap-3 mt-2 mb-4">
+          <button type="button" onClick={() => window.print()}
+            className="flex-1 bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-xl py-3 transition-colors text-sm shadow">
+            🖨️ พิมพ์ / บันทึก PDF
+          </button>
           <button type="button" onClick={reset}
-            className="flex-1 border-2 border-pink-400 text-pink-600 font-semibold rounded-xl py-3 hover:bg-pink-50 transition-colors text-sm">
-            🔄 รีเซ็ตทั้งหมด
+            className="border-2 border-pink-400 text-pink-600 font-semibold rounded-xl py-3 px-4 hover:bg-pink-50 transition-colors text-sm">
+            🔄 รีเซ็ต
           </button>
           <button type="button" onClick={() => setAuth(false)}
-            className="border-2 border-gray-300 text-gray-500 font-semibold rounded-xl py-3 px-5 hover:bg-gray-50 transition-colors text-sm">
-            ออกจากระบบ
+            className="border-2 border-gray-300 text-gray-500 font-semibold rounded-xl py-3 px-4 hover:bg-gray-50 transition-colors text-sm">
+            ออก
           </button>
         </div>
 
-        {/* Disclaimer */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-8 text-xs text-gray-600 leading-relaxed">
+        {/* Disclaimer (screen) */}
+        <div className="no-print bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-8 text-xs text-gray-600 leading-relaxed">
           <p className="font-semibold text-yellow-700 mb-1">⚠️ ข้อสังเกต / Disclaimer</p>
           <p>ผลลัพธ์นี้เป็น<strong>การประมาณการเบื้องต้น</strong>เท่านั้น ควรปรึกษานักบัญชีหรือกรมสรรพากรเพื่อความถูกต้องสมบูรณ์</p>
           <p className="mt-1 text-gray-400">อ้างอิง: ประมวลรัษฎากร ม.40, 47, 48 | พ.ร.ฎ. ฉ.600, 629, 750, 780, 796 | กฎกระทรวง ฉ.126 | แบบ ภ.ง.ด.90/91 ปีภาษี 2568</p>
+        </div>
+
+        {/* ═══ PRINT-ONLY REPORT ═══ */}
+        <div className="print-only">
+          {/* Print Header */}
+          <div className="print-header">
+            <h1>🧾 สรุปการคำนวณภาษีเงินได้บุคคลธรรมดา</h1>
+            <p>ปีภาษี 2568 (ยื่นแบบปี 2569) · อ้างอิง ประมวลรัษฎากร ม.40, 47, 48</p>
+            <p className="date-line">พิมพ์เมื่อ: {new Date().toLocaleDateString('th-TH', { year:'numeric', month:'long', day:'numeric' })}</p>
+          </div>
+
+          {/* Summary Cards */}
+          <div className="print-cards">
+            <div className="print-card">
+              <p className="label">รายได้รวมทั้งสิ้น</p>
+              <p className="value">฿{fmt(calc.gross)}</p>
+            </div>
+            <div className="print-card">
+              <p className="label">ค่าลดหย่อนรวม</p>
+              <p className="value">฿{fmt(calc.totalD)}</p>
+            </div>
+            <div className="print-card pink">
+              <p className="label">เงินได้สุทธิ</p>
+              <p className="value">฿{fmt(calc.netInc)}</p>
+            </div>
+            <div className="print-card pink">
+              <p className="label">อัตราภาษีที่แท้จริง (Effective Rate)</p>
+              <p className="value">{calc.effRate.toFixed(2)}%</p>
+            </div>
+          </div>
+
+          {/* Result Banner */}
+          <div className={`print-banner ${calc.taxDue > 0 ? 'due' : 'refund'}`}>
+            <p className="banner-label">
+              {calc.taxDue > 0 ? '💸 ภาษีที่ต้องชำระเพิ่ม' : calc.taxDue < 0 ? '✅ ภาษีที่ขอคืนได้' : '✔️ ไม่มียอดชำระ/คืน'}
+            </p>
+            <p className="banner-amount">฿{fmt(Math.abs(calc.taxDue))}</p>
+            {calc.minTaxUsed && (
+              <p style={{fontSize:'8pt',color:'#ea580c',marginTop:'4px'}}>
+                ⚠️ ใช้กฎ 0.5% × ฿{fmt(calc.gross)} = ฿{fmt(calc.gross*0.005)} (มากกว่าภาษีขั้นบันได ฿{fmt(calc.pgTax)})
+              </p>
+            )}
+          </div>
+
+          {/* Calculation Detail */}
+          <div className="print-sec-header">หมวด 3 · รายละเอียดการคำนวณทีละขั้น</div>
+          <div className="print-sec-body">
+            <div className="calc-row dim"><span>(+) รายได้หลัก ({INCOME_TYPES.find(t=>t.value===incType).label})</span><span>฿{fmt(calc.inc)}</span></div>
+            {calc.other > 0 && <div className="calc-row dim"><span>(+) รายได้อื่น ๆ</span><span>฿{fmt(calc.other)}</span></div>}
+            <div className="calc-row bold"><span>รายได้รวม</span><span>฿{fmt(calc.gross)}</span></div>
+            <div className="calc-row dim"><span>(-) ค่าใช้จ่ายเหมา {(calc.expRate*100).toFixed(0)}%</span><span>-฿{fmt(calc.expD)}</span></div>
+            <hr className="divider"/>
+            <div style={{fontSize:'8pt',fontWeight:600,color:'#be185d',margin:'3px 0 1px'}}>ค่าลดหย่อน:</div>
+            <div className="calc-row indent dim"><span>• ส่วนตัว</span><span>-฿{fmt(calc.personalD)}</span></div>
+            {calc.spouseD>0 && <div className="calc-row indent dim"><span>• คู่สมรส</span><span>-฿{fmt(calc.spouseD)}</span></div>}
+            {calc.childrenD>0 && <div className="calc-row indent dim"><span>• บุตร ({Math.floor(toNum(children))} คน)</span><span>-฿{fmt(calc.childrenD)}</span></div>}
+            {calc.pregnancyD>0 && <div className="calc-row indent dim"><span>• ฝากครรภ์/คลอดบุตร</span><span>-฿{fmt(calc.pregnancyD)}</span></div>}
+            {calc.parentsD>0 && <div className="calc-row indent dim"><span>• บิดามารดา ({Math.min(Math.floor(toNum(parents)),4)} คน)</span><span>-฿{fmt(calc.parentsD)}</span></div>}
+            {calc.disabledD>0 && <div className="calc-row indent dim"><span>• ผู้พิการ ({Math.floor(toNum(disabledPpl))} คน)</span><span>-฿{fmt(calc.disabledD)}</span></div>}
+            {calc.lifeHealthD>0 && <div className="calc-row indent dim"><span>• ประกันชีวิต + สุขภาพ</span><span>-฿{fmt(calc.lifeHealthD)}</span></div>}
+            {calc.parentHealthD>0 && <div className="calc-row indent dim"><span>• ประกันสุขภาพบิดามารดา</span><span>-฿{fmt(calc.parentHealthD)}</span></div>}
+            {calc.annuityFinal>0 && <div className="calc-row indent dim"><span>• ประกันชีวิตบำนาญ</span><span>-฿{fmt(calc.annuityFinal)}</span></div>}
+            {calc.socSecD>0 && <div className="calc-row indent dim"><span>• ประกันสังคม</span><span>-฿{fmt(calc.socSecD)}</span></div>}
+            {calc.pvdFinal>0 && <div className="calc-row indent dim"><span>• PVD</span><span>-฿{fmt(calc.pvdFinal)}</span></div>}
+            {calc.rmfFinal>0 && <div className="calc-row indent dim"><span>• RMF</span><span>-฿{fmt(calc.rmfFinal)}</span></div>}
+            {calc.gpfFinal>0 && <div className="calc-row indent dim"><span>• กบข.</span><span>-฿{fmt(calc.gpfFinal)}</span></div>}
+            {calc.nsfFinal>0 && <div className="calc-row indent dim"><span>• กอช.</span><span>-฿{fmt(calc.nsfFinal)}</span></div>}
+            {calc.esgD>0 && <div className="calc-row indent dim"><span>• Thai ESG/ESGX</span><span>-฿{fmt(calc.esgD)}</span></div>}
+            {calc.mortgageD>0 && <div className="calc-row indent dim"><span>• ดอกเบี้ยเงินกู้บ้าน</span><span>-฿{fmt(calc.mortgageD)}</span></div>}
+            {calc.newHouseD>0 && <div className="calc-row indent dim"><span>• ค่าสร้างบ้านใหม่</span><span>-฿{fmt(calc.newHouseD)}</span></div>}
+            {calc.eReceiptD>0 && <div className="calc-row indent dim"><span>• Easy E-Receipt 2.0</span><span>-฿{fmt(calc.eReceiptD)}</span></div>}
+            {calc.travelD>0 && <div className="calc-row indent dim"><span>• เที่ยวดีมีคืน 2568</span><span>-฿{fmt(calc.travelD)}</span></div>}
+            {calc.don1D>0 && <div className="calc-row indent dim"><span>• บริจาคทั่วไป</span><span>-฿{fmt(calc.don1D)}</span></div>}
+            {calc.don2D>0 && <div className="calc-row indent dim"><span>• บริจาคการศึกษา/กีฬา (×2)</span><span>-฿{fmt(calc.don2D)}</span></div>}
+            <hr className="divider"/>
+            <div className="calc-row bold"><span>(-) ค่าลดหย่อนรวม</span><span>-฿{fmt(calc.totalD)}</span></div>
+            <hr className="divider dark"/>
+            <div className="calc-row highlight"><span>(=) เงินได้สุทธิ</span><span>฿{fmt(calc.netInc)}</span></div>
+            <div style={{marginTop:'6px'}}/>
+            <div className="calc-row dim"><span>(×) ภาษีตามอัตราขั้นบันได</span><span>฿{fmt(calc.pgTax)}</span></div>
+            {calc.minTaxUsed && <div className="calc-row dim"><span>→ ใช้กฎ 0.5% × ฿{fmt(calc.gross)} แทน</span><span>฿{fmt(calc.finalTax)}</span></div>}
+            <div className="calc-row dim"><span>(-) ภาษีหัก ณ ที่จ่าย</span><span>-฿{fmt(calc.whtAmt)}</span></div>
+            <hr className="divider dark"/>
+            <div className={`calc-row ${calc.taxDue > 0 ? 'red' : calc.taxDue < 0 ? 'green' : 'bold'}`}>
+              <span>(=) {calc.taxDue>0 ? 'ภาษีที่ต้องชำระเพิ่ม' : 'ภาษีที่ขอคืนได้'}</span>
+              <span>฿{fmt(Math.abs(calc.taxDue))}</span>
+            </div>
+          </div>
+
+          {/* Bracket Table */}
+          <div className="print-sec-header" style={{marginTop:'10px'}}>ตารางอัตราภาษีขั้นบันได</div>
+          <div className="print-sec-body">
+            <table className="bracket-table">
+              <thead>
+                <tr>
+                  <th>ช่วงเงินได้สุทธิ (บาท)</th>
+                  <th style={{textAlign:'center'}}>อัตรา</th>
+                  <th style={{textAlign:'right'}}>ภาษีในช่วงนี้</th>
+                  <th style={{textAlign:'right'}}>ภาษีสะสม</th>
+                </tr>
+              </thead>
+              <tbody>
+                {BRACKETS.map((b, i) => {
+                  const row = calc.bRows.find(r => r.min === b.min);
+                  const isCurrent = calc.netInc > b.min && (b.max === Infinity ? true : calc.netInc <= b.max);
+                  return (
+                    <tr key={i} className={isCurrent ? 'active' : row ? 'used' : ''}>
+                      <td>{b.label}</td>
+                      <td style={{textAlign:'center'}}>{(b.rate*100).toFixed(0)}%</td>
+                      <td style={{textAlign:'right'}}>{row ? `฿${fmt(row.t)}` : '—'}</td>
+                      <td style={{textAlign:'right'}}>{row ? `฿${fmt(row.cum)}` : '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr><td colSpan={2}>ภาษีรวม (ขั้นบันได)</td><td colSpan={2} style={{textAlign:'right'}}>฿{fmt(calc.pgTax)}</td></tr>
+              </tfoot>
+            </table>
+          </div>
+
+          {/* Print Disclaimer */}
+          <div className="print-disclaimer">
+            ⚠️ ผลลัพธ์นี้เป็นการประมาณการเบื้องต้นเท่านั้น ควรปรึกษานักบัญชีหรือกรมสรรพากรเพื่อความถูกต้องสมบูรณ์ |
+            อ้างอิง: ประมวลรัษฎากร ม.40, 47, 48 · พ.ร.ฎ. ฉ.600, 629, 750, 780, 796 · กฎกระทรวง ฉ.126 · แบบ ภ.ง.ด.90/91 ปีภาษี 2568
+          </div>
         </div>
 
       </div>
