@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>เครื่องคิดเลขภาษีเงินได้ ปีภาษี 2568</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Sarabun', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Sarabun', sans-serif; }
+    * { -webkit-tap-highlight-color: transparent; }
+  </style>
+</head>
+<body class="bg-pink-50">
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useMemo } = React;
+
+const PASSWORD = "HRMEGA2026";
+
+const INCOME_TYPES = [
+  { value: '40_1', label: 'ม.40(1) เงินเดือน/ค่าจ้าง', rate: 0.5, cap: 100000 },
+  { value: '40_2', label: 'ม.40(2) รับจ้างทำงาน', rate: 0.5, cap: 100000 },
+  { value: '40_3', label: 'ม.40(3) ค่าแห่งลิขสิทธิ์', rate: 0.5, cap: 100000 },
+  { value: '40_5', label: 'ม.40(5) ค่าเช่า', rate: 0.3, cap: null },
+  { value: '40_6', label: 'ม.40(6) วิชาชีพอิสระ (แพทย์/ทนาย/วิศวกร)', rate: 0.6, cap: null },
+  { value: '40_7', label: 'ม.40(7) รับเหมาก่อสร้าง', rate: 0.7, cap: null },
+  { value: '40_8', label: 'ม.40(8) รายได้อื่น ๆ', rate: 0.6, cap: null },
+];
+
+const BRACKETS = [
+  { min: 0,       max: 150000,   rate: 0,    label: '0 – 150,000' },
+  { min: 150000,  max: 300000,   rate: 0.05, label: '150,001 – 300,000' },
+  { min: 300000,  max: 500000,   rate: 0.10, label: '300,001 – 500,000' },
+  { min: 500000,  max: 750000,   rate: 0.15, label: '500,001 – 750,000' },
+  { min: 750000,  max: 1000000,  rate: 0.20, label: '750,001 – 1,000,000' },
+  { min: 1000000, max: 2000000,  rate: 0.25, label: '1,000,001 – 2,000,000' },
+  { min: 2000000, max: 5000000,  rate: 0.30, label: '2,000,001 – 5,000,000' },
+  { min: 5000000, max: Infinity, rate: 0.35, label: '5,000,001 ขึ้นไป' },
+];
+
+const fmt = (v) => Math.round(Math.max(0, v)).toLocaleString('th-TH');
+const toNum = (v) => Math.max(0, parseFloat(String(v).replace(/,/g, '')) || 0);
+
+function progressiveTax(net) {
+  if (net <= 0) return { tax: 0, rows: [] };
+  let tax = 0, rows = [];
+  for (const b of BRACKETS) {
+    if (net <= b.min) break;
+    const upper = b.max === Infinity ? net : Math.min(net, b.max);
+    const amt = upper - b.min;
+    const t = amt * b.rate;
+    tax += t;
+    rows.push({ ...b, amt, t, cum: tax });
+    if (b.max === Infinity || net <= b.max) break;
+  }
+  return { tax, rows };
+}
+
+function Tip({ text }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span className="relative inline-block ml-1 align-middle">
+      <button type="button"
+        className="w-4 h-4 rounded-full bg-pink-300 hover:bg-pink-400 text-black text-xs font-bold leading-4 text-center"
+        onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}
+        onClick={() => setShow(s => !s)}>?</button>
+      {show && (
+        <span className="absolute z-50 bottom-6 left-0 w-64 bg-black text-white text-xs rounded-lg p-2 shadow-xl leading-relaxed">
+          {text}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function Num({ label, value, onChange, cap, hint, tip, disabled }) {
+  const val = toNum(value);
+  const over = cap != null && val > cap;
+  return (
+    <div className="mb-3">
+      <label className="block text-sm font-medium text-black mb-1">
+        {label}{tip && <Tip text={tip} />}
+      </label>
+      <input type="text" inputMode="numeric" value={value} disabled={disabled}
+        onChange={e => onChange(e.target.value.replace(/[^0-9.]/g, ''))}
+        placeholder="0"
+        className={`w-full border rounded-lg px-3 py-2 text-right text-sm focus:outline-none focus:ring-2 focus:ring-pink-300
+          ${disabled ? 'bg-pink-50 text-gray-400 cursor-not-allowed' : 'bg-white text-black'}
+          ${over ? 'border-red-400' : 'border-pink-200'}`} />
+      {hint && <p className="text-xs text-gray-500 mt-0.5">{hint}</p>}
+      {over && <p className="text-xs text-red-500 mt-0.5">⚠️ เกินสูงสุด {fmt(cap)} บาท — ระบบจะใช้ {fmt(cap)} บาทอัตโนมัติ</p>}
+    </div>
+  );
+}
+
+function Sec({ title, children, open: defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="mb-4 rounded-xl border border-pink-200 overflow-hidden shadow-sm">
+      <button type="button" onClick={() => setOpen(o => !o)}
+        className="w-full flex justify-between items-center px-4 py-3 bg-pink-100 hover:bg-pink-200 transition-colors">
+        <span className="font-semibold text-black text-sm md:text-base">{title}</span>
+        <span className="text-pink-600 text-sm ml-2 flex-shrink-0">{open ? '▲' : '▼'}</span>
+      </button>
+      {open && <div className="p-4 bg-white">{children}</div>}
+    </div>
+  );
+}
+
+function Row({ label, value, indent, bold, highlight, red, green }) {
+  const cls = [
+    'flex justify-between py-0.5 text-sm',
+    indent ? 'pl-4' : '',
+    bold ? 'font-semibold' : '',
+    highlight ? 'bg-pink-50 px-2 rounded font-bold text-pink-800' : '',
+    red ? 'text-red-600 font-bold' : '',
+    green ? 'text-green-600 font-bold' : '',
+  ].filter(Boolean).join(' ');
+  const display = typeof value === 'number'
+    ? (value < 0 ? `-฿${fmt(Math.abs(value))}` : `฿${fmt(value)}`)
+    : value;
+  return (
+    <div className={cls}>
+      <span className={value < 0 && !red && !green ? 'text-gray-600' : ''}>{label}</span>
+      <span>{display}</span>
+    </div>
+  );
+}
+
+function LoginScreen({ onOk }) {
+  const [pw, setPw] = useState('');
+  const [err, setErr] = useState(false);
+  return (
+    <div className="min-h-screen bg-pink-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-sm border border-pink-200">
+        <div className="text-center mb-6">
+          <div className="text-5xl mb-3">🧾</div>
+          <h1 className="text-xl font-bold text-black">เครื่องคิดเลขภาษีเงินได้</h1>
+          <p className="text-sm text-pink-600 font-semibold mt-1">บุคคลธรรมดา ปีภาษี 2568</p>
+          <p className="text-xs text-gray-400 mt-1">สำหรับบุคคลภายในเท่านั้น</p>
+        </div>
+        <form onSubmit={e => { e.preventDefault(); pw === PASSWORD ? onOk() : (setErr(true), setPw('')); }}>
+          <label className="block text-sm font-medium text-black mb-1">รหัสผ่าน</label>
+          <input type="password" value={pw} autoFocus
+            onChange={e => { setPw(e.target.value); setErr(false); }}
+            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300 mb-2 ${err ? 'border-red-400' : 'border-pink-200'}`}
+            placeholder="กรอกรหัสผ่าน" />
+          {err && <p className="text-xs text-red-500 mb-2">รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่</p>}
+          <button type="submit"
+            className="w-full bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-lg py-2 transition-colors mt-1">
+            เข้าสู่ระบบ
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [auth, setAuth] = useState(false);
+  const [incType, setIncType] = useState('40_1');
+  const [income, setIncome] = useState('');
+  const [otherInc, setOtherInc] = useState('');
+  const [wht, setWht] = useState('');
+  const [spouse, setSpouse] = useState('');
+  const [children, setChildren] = useState('');
+  const [pregnancy, setPregnancy] = useState('');
+  const [parents, setParents] = useState('');
+  const [disabledPpl, setDisabledPpl] = useState('');
+  const [lifeIns, setLifeIns] = useState('');
+  const [healthIns, setHealthIns] = useState('');
+  const [parentHealth, setParentHealth] = useState('');
+  const [annuity, setAnnuity] = useState('');
+  const [socSec, setSocSec] = useState('');
+  const [pvd, setPvd] = useState('');
+  const [rmf, setRmf] = useState('');
+  const [gpf, setGpf] = useState('');
+  const [nsf, setNsf] = useState('');
+  const [esg, setEsg] = useState('');
+  const [mortgage, setMortgage] = useState('');
+  const [newHouse, setNewHouse] = useState('');
+  const [eReceipt, setEReceipt] = useState('');
+  const [travelType, setTravelType] = useState('main');
+  const [travelAmt, setTravelAmt] = useState('');
+  const [don1, setDon1] = useState('');
+  const [don2, setDon2] = useState('');
+
+  if (!auth) return <LoginScreen onOk={() => setAuth(true)} />;
+
+  const inc = toNum(income);
+
+  const calc = useMemo(() => {
+    const inc = toNum(income);
+    const other = toNum(otherInc);
+    const gross = inc + other;
+    const whtAmt = toNum(wht);
+    const it = INCOME_TYPES.find(t => t.value === incType);
+    const expD = it.cap ? Math.min(inc * it.rate, it.cap) : inc * it.rate;
+    const personalD = 60000;
+    const spouseD = Math.min(toNum(spouse), 60000);
+    const childrenD = Math.floor(toNum(children)) * 30000;
+    const pregnancyD = Math.min(toNum(pregnancy), 60000);
+    const parentsD = Math.min(Math.floor(toNum(parents)), 4) * 30000;
+    const disabledD = Math.floor(toNum(disabledPpl)) * 60000;
+    const lifeD = Math.min(toNum(lifeIns), 100000);
+    const healthRoom = Math.max(0, 100000 - lifeD);
+    const healthD = Math.min(toNum(healthIns), 25000, healthRoom);
+    const lifeHealthD = lifeD + healthD;
+    const parentHealthD = Math.min(toNum(parentHealth), 15000);
+    const annuityMax = Math.min(200000, inc * 0.15);
+    const annuityD = Math.min(toNum(annuity), annuityMax);
+    const socSecD = Math.min(toNum(socSec), 9000);
+    const retCap = Math.min(500000, inc * 0.3);
+    const pvdRaw = Math.min(toNum(pvd), inc * 0.15, 500000);
+    const rmfRaw = Math.min(toNum(rmf), inc * 0.3);
+    const gpfRaw = toNum(gpf);
+    const nsfRaw = toNum(nsf);
+    const retRaw = annuityD + pvdRaw + rmfRaw + gpfRaw + nsfRaw;
+    const retScale = retRaw > 0 ? Math.min(1, retCap / retRaw) : 1;
+    const annuityFinal = annuityD * retScale;
+    const pvdFinal = pvdRaw * retScale;
+    const rmfFinal = rmfRaw * retScale;
+    const gpfFinal = gpfRaw * retScale;
+    const nsfFinal = nsfRaw * retScale;
+    const esgMax = Math.min(300000, inc * 0.3);
+    const esgD = Math.min(toNum(esg), esgMax);
+    const mortgageD = Math.min(toNum(mortgage), 100000);
+    const newHouseD = Math.min(toNum(newHouse), 100000);
+    const eReceiptD = Math.min(toNum(eReceipt), 50000);
+    const travelMulti = travelType === 'secondary' ? 1.5 : 1.0;
+    const travelCapAmt = travelType === 'secondary' ? 30000 : 20000;
+    const travelD = Math.min(toNum(travelAmt) * travelMulti, travelCapAmt);
+    const nonDonD = personalD + spouseD + childrenD + pregnancyD + parentsD + disabledD
+      + lifeHealthD + parentHealthD + annuityFinal + socSecD
+      + pvdFinal + rmfFinal + gpfFinal + nsfFinal + esgD
+      + mortgageD + newHouseD + eReceiptD + travelD;
+    const donBase = Math.max(0, gross - expD - nonDonD);
+    const donCap = donBase * 0.1;
+    const don1D = Math.min(toNum(don1), donCap);
+    const don2D = Math.min(toNum(don2) * 2, Math.max(0, donCap - don1D));
+    const donTotal = don1D + don2D;
+    const totalD = nonDonD + donTotal;
+    const netInc = Math.max(0, gross - expD - totalD);
+    const { tax: pgTax, rows: bRows } = progressiveTax(netInc);
+    let finalTax = pgTax, minTaxUsed = false;
+    if (gross > 1200000) {
+      const minTax = gross * 0.005;
+      if (minTax > pgTax) { finalTax = minTax; minTaxUsed = true; }
+    }
+    const taxDue = finalTax - whtAmt;
+    const effRate = gross > 0 ? (finalTax / gross) * 100 : 0;
+    return {
+      inc, other, gross, whtAmt, expD, expRate: it.rate,
+      personalD, spouseD, childrenD, pregnancyD, parentsD, disabledD,
+      lifeHealthD, parentHealthD, annuityFinal, socSecD,
+      pvdFinal, rmfFinal, gpfFinal, nsfFinal, esgD,
+      mortgageD, newHouseD, eReceiptD, travelD,
+      don1D, don2D, donTotal, donBase, donCap,
+      nonDonD, totalD, netInc, pgTax, finalTax, minTaxUsed,
+      taxDue, effRate, bRows,
+      retCap, retScale, annuityMax, esgMax, healthRoom,
+    };
+  }, [incType, income, otherInc, wht, spouse, children, pregnancy, parents, disabledPpl,
+      lifeIns, healthIns, parentHealth, annuity, socSec, pvd, rmf, gpf, nsf, esg,
+      mortgage, newHouse, eReceipt, travelType, travelAmt, don1, don2]);
+
+  const reset = () => {
+    setIncType('40_1'); setIncome(''); setOtherInc(''); setWht('');
+    setSpouse(''); setChildren(''); setPregnancy(''); setParents(''); setDisabledPpl('');
+    setLifeIns(''); setHealthIns(''); setParentHealth(''); setAnnuity('');
+    setSocSec(''); setPvd(''); setRmf(''); setGpf(''); setNsf(''); setEsg('');
+    setMortgage(''); setNewHouse('');
+    setEReceipt(''); setTravelType('main'); setTravelAmt('');
+    setDon1(''); setDon2('');
+  };
+
+  return (
+    <div className="min-h-screen bg-pink-50 py-6 px-4">
+      <div className="max-w-2xl mx-auto">
+
+        {/* Header */}
+        <div className="text-center mb-6">
+          <h1 className="text-xl md:text-2xl font-bold text-black">🧾 เครื่องคิดเลขภาษีเงินได้บุคคลธรรมดา</h1>
+          <p className="text-pink-600 font-semibold mt-1">ปีภาษี 2568 (ยื่นภาษีปี 2569)</p>
+          <p className="text-xs text-gray-400 mt-0.5">อ้างอิง ประมวลรัษฎากร ม.40, 47, 48 | สำหรับบุคคลภายในเท่านั้น</p>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          {[
+            { label: 'รายได้รวมทั้งสิ้น', val: `฿${fmt(calc.gross)}` },
+            { label: 'ค่าลดหย่อนรวม', val: `฿${fmt(calc.totalD)}` },
+            { label: 'เงินได้สุทธิ', val: `฿${fmt(calc.netInc)}`, pink: true },
+            { label: 'อัตราภาษีที่แท้จริง', val: `${calc.effRate.toFixed(2)}%`, pink: true },
+          ].map((c, i) => (
+            <div key={i} className={`rounded-xl p-4 border border-pink-200 shadow-sm ${c.pink ? 'bg-pink-100' : 'bg-white'}`}>
+              <p className="text-xs text-gray-500 mb-1">{c.label}</p>
+              <p className="text-base md:text-lg font-bold text-black">{c.val}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Result Banner */}
+        <div className={`rounded-xl p-4 mb-6 border-2 text-center shadow-sm
+          ${calc.taxDue > 0 ? 'bg-red-50 border-red-300' : calc.taxDue < 0 ? 'bg-green-50 border-green-300' : 'bg-white border-pink-200'}`}>
+          <p className="text-sm text-gray-500 mb-1">
+            {calc.taxDue > 0 ? '💸 ภาษีที่ต้องชำระเพิ่ม' : calc.taxDue < 0 ? '✅ ภาษีที่ขอคืนได้' : '✔️ ไม่มียอดชำระ/คืน'}
+          </p>
+          <p className={`text-3xl font-bold ${calc.taxDue > 0 ? 'text-red-600' : calc.taxDue < 0 ? 'text-green-600' : 'text-black'}`}>
+            ฿{fmt(Math.abs(calc.taxDue))}
+          </p>
+          {calc.minTaxUsed && (
+            <p className="text-xs text-orange-600 mt-2 bg-orange-50 rounded px-2 py-1">
+              ⚠️ ใช้ภาษีขั้นต่ำ 0.5% × ฿{fmt(calc.gross)} = ฿{fmt(calc.gross * 0.005)} (มากกว่าภาษีขั้นบันได ฿{fmt(calc.pgTax)})
+            </p>
+          )}
+        </div>
+
+        {/* SECTION 1 */}
+        <Sec title="หมวด 1 · รายได้" open={true}>
+          <div className="mb-3">
+            <label className="block text-sm font-medium text-black mb-1">
+              ประเภทรายได้หลัก <Tip text="เลือกประเภทตามมาตราที่เกี่ยวข้อง ใช้กำหนดอัตราหักค่าใช้จ่ายเหมา" />
+            </label>
+            <select value={incType} onChange={e => setIncType(e.target.value)}
+              className="w-full border border-pink-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-300">
+              {INCOME_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+            {(() => {
+              const it = INCOME_TYPES.find(t => t.value === incType);
+              return <p className="text-xs text-pink-600 mt-1">หักค่าใช้จ่ายเหมา {(it.rate * 100).toFixed(0)}%{it.cap ? ` (สูงสุด ${fmt(it.cap)} บาท)` : ' (ไม่จำกัดเพดาน)'}</p>;
+            })()}
+          </div>
+          <Num label="รายได้รวมทั้งปี (บาท)" value={income} onChange={setIncome}
+            hint="รวมเงินเดือน โบนัส ค่าล่วงเวลา และสิทธิประโยชน์ทั้งหมดก่อนหักภาษี"
+            tip="ยอดรวมทั้งปีก่อนหักภาษี รวมโบนัส ค่าล่วงเวลา และสิทธิประโยชน์ต่าง ๆ" />
+          <Num label="รายได้อื่น ๆ (ดอกเบี้ย เงินปันผล ฯลฯ) (บาท)" value={otherInc} onChange={setOtherInc}
+            hint="ไม่ใช้คิดค่าใช้จ่ายเหมา — รวมคำนวณภาษีโดยตรง"
+            tip="เช่น ดอกเบี้ยเงินฝาก เงินปันผล ที่นำมารวมคำนวณภาษี" />
+          <Num label="ภาษีหัก ณ ที่จ่ายสะสมทั้งปี (บาท)" value={wht} onChange={setWht}
+            hint="จากใบ 50 ทวิ หรือหนังสือรับรองการหักภาษี ณ ที่จ่าย"
+            tip="ยอดรวมภาษีที่นายจ้างหักนำส่งแทนตลอดทั้งปีภาษี" />
+          {calc.inc > 0 && (
+            <div className="mt-2 bg-pink-50 rounded-lg p-3 text-sm border border-pink-100">
+              <span className="text-gray-600">ค่าใช้จ่ายเหมาที่ใช้: </span>
+              <span className="font-bold text-pink-700">฿{fmt(calc.expD)}</span>
+            </div>
+          )}
+        </Sec>
+
+        {/* SECTION 2.1 */}
+        <Sec title="หมวด 2.1 · ลดหย่อนส่วนตัวและครอบครัว">
+          <div className="bg-pink-50 border border-pink-200 rounded-lg px-3 py-2 mb-3 text-sm flex justify-between">
+            <span className="text-gray-600">ลดหย่อนส่วนตัว (ม.47 — ค่าคงที่)</span>
+            <span className="font-bold text-pink-700">฿60,000</span>
+          </div>
+          <Num label="คู่สมรสที่ไม่มีรายได้ (บาท)" value={spouse} onChange={setSpouse} cap={60000}
+            hint="สูงสุด 60,000 บาท"
+            tip="คู่สมรสที่ไม่มีเงินได้ในปีภาษีนั้น หรือเลือกยื่นรวม" />
+          <Num label="จำนวนบุตร (คน)" value={children} onChange={setChildren}
+            hint={`ลดหย่อน 30,000 บาท/คน = ฿${fmt(Math.floor(toNum(children)) * 30000)} บาท`}
+            tip="บุตรชอบด้วยกฎหมายหรือบุตรบุญธรรม อายุ ≤ 20 ปี หรือ ≤ 25 ปีหากศึกษาอยู่ (พ.ร.ฎ. ฉ.629)" />
+          <Num label="ค่าฝากครรภ์และคลอดบุตร (บาท)" value={pregnancy} onChange={setPregnancy} cap={60000}
+            hint="สูงสุด 60,000 บาทต่อครรภ์ (พ.ร.ฎ. ฉบับที่ 600)"
+            tip="ค่าใช้จ่ายฝากครรภ์และค่าทำคลอดตามที่จ่ายจริง" />
+          <Num label="จำนวนบิดามารดาที่มีสิทธิ์ (คน)" value={parents} onChange={setParents}
+            hint={`สูงสุด 4 คน | ลดหย่อน 30,000/คน = ฿${fmt(Math.min(Math.floor(toNum(parents)), 4) * 30000)} บาท`}
+            tip="บิดา/มารดาอายุ ≥ 60 ปี และมีรายได้ ≤ 30,000 บาท/ปี สูงสุด 4 คน" />
+          <Num label="จำนวนผู้พิการ/ทุพพลภาพที่อุปการะ (คน)" value={disabledPpl} onChange={setDisabledPpl}
+            hint="ลดหย่อน 60,000 บาท/คน"
+            tip="บุคคลพิการหรือทุพพลภาพที่อยู่ในความอุปการะ มีบัตรประจำตัวผู้พิการ" />
+        </Sec>
+
+        {/* SECTION 2.2 */}
+        <Sec title="หมวด 2.2 · ประกันและกองทุนเกษียณ">
+          <p className="text-xs font-semibold text-pink-600 mb-2">— ประกัน —</p>
+          <Num label="เบี้ยประกันชีวิตทั่วไป (บาท)" value={lifeIns} onChange={setLifeIns} cap={100000}
+            hint="สูงสุด 100,000 บาท (กฎกระทรวง ฉ.126) | อายุกรมธรรม์ ≥ 10 ปี"
+            tip="เบี้ยประกันชีวิตทั่วไปที่มีกำหนดไม่ต่ำกว่า 10 ปี" />
+          <Num label="เบี้ยประกันสุขภาพตนเอง (บาท)" value={healthIns} onChange={setHealthIns} cap={25000}
+            hint={`สูงสุด 25,000 บาท | รวมกับประกันชีวิตต้องไม่เกิน 100,000 บาท (เหลือช่อง: ฿${fmt(calc.healthRoom)})`}
+            tip="เบี้ยประกันสุขภาพตนเอง เมื่อรวมกับประกันชีวิตต้องไม่เกิน 100,000 บาท" />
+          <Num label="เบี้ยประกันสุขภาพบิดามารดา (บาท)" value={parentHealth} onChange={setParentHealth} cap={15000}
+            hint="สูงสุด 15,000 บาท — แยกเพดาน ไม่นับรวมกับข้างต้น"
+            tip="เบี้ยประกันสุขภาพสำหรับบิดามารดา มีเพดานแยกต่างหาก" />
+          <Num label="เบี้ยประกันชีวิตแบบบำนาญ (บาท)" value={annuity} onChange={setAnnuity}
+            cap={calc.annuityMax || 200000}
+            hint={`สูงสุด 200,000 บาท หรือ 15% ของรายได้ (= ฿${fmt(inc * 0.15)}) | นับรวมในเพดาน 500,000 บาท`}
+            tip="กรมธรรม์บำนาญ ให้ผลประโยชน์เมื่ออายุ 55–85 ปี" />
+          <Num label="เงินสมทบประกันสังคม (บาท)" value={socSec} onChange={setSocSec} cap={9000}
+            hint="สูงสุด 9,000 บาท/ปี"
+            tip="เงินสมทบกองทุนประกันสังคมที่หักจากเงินเดือนตลอดทั้งปี" />
+          <div className="border-t border-pink-100 mt-3 pt-3">
+            <p className="text-xs font-semibold text-pink-600 mb-1">— กองทุนเกษียณ (เพดานรวม: ฿{fmt(calc.retCap)} = min(500,000, 30%×รายได้)) —</p>
+            {calc.retScale < 1 && (
+              <p className="text-xs text-orange-600 bg-orange-50 rounded p-2 mb-2">
+                ⚠️ ยอดกองทุนเกษียณรวมเกินเพดาน ระบบปรับสัดส่วนอัตโนมัติ ({(calc.retScale * 100).toFixed(1)}%)
+              </p>
+            )}
+            <Num label="กองทุนสำรองเลี้ยงชีพ PVD (บาท)" value={pvd} onChange={setPvd}
+              hint={`สูงสุด 15% ของรายได้ (= ฿${fmt(inc * 0.15)}) และไม่เกิน 500,000 บาท`}
+              tip="เงินสะสม PVD นับรวมในเพดาน 500,000 บาท" />
+            <Num label="กองทุน RMF (บาท)" value={rmf} onChange={setRmf}
+              hint={`สูงสุด 30% ของรายได้ (= ฿${fmt(inc * 0.3)}) นับรวมในเพดาน 500,000 บาท`}
+              tip="กองทุนรวมเพื่อการเลี้ยงชีพ ต้องถือครองถึงอายุ 55 ปีและ ≥ 5 ปี" />
+            <Num label="กบข. (กองทุนบำเหน็จบำนาญข้าราชการ) (บาท)" value={gpf} onChange={setGpf}
+              hint="ตามที่จ่ายจริง นับรวมในเพดาน 500,000 บาท"
+              tip="สำหรับข้าราชการที่เป็นสมาชิก กบข. เท่านั้น" />
+            <Num label="กอช. (กองทุนการออมแห่งชาติ) (บาท)" value={nsf} onChange={setNsf}
+              hint="ตามที่จ่ายจริง นับรวมในเพดาน 500,000 บาท"
+              tip="สำหรับแรงงานนอกระบบที่เป็นสมาชิก กอช." />
+          </div>
+          <div className="border-t border-pink-100 mt-3 pt-3">
+            <Num label="Thai ESG / Thai ESGX (บาท)" value={esg} onChange={setEsg}
+              cap={calc.esgMax || 300000}
+              hint={`สูงสุด 300,000 บาท หรือ 30% ของรายได้ (= ฿${fmt(inc * 0.3)}) — แยกเพดาน ไม่นับรวม 500,000 บาท`}
+              tip="กองทุน Thai ESG/ESGX มีเพดานแยกต่างหาก (พ.ร.ฎ. ฉ.750, 796)" />
+          </div>
+        </Sec>
+
+        {/* SECTION 2.3 */}
+        <Sec title="หมวด 2.3 · ค่าใช้จ่ายและสินทรัพย์">
+          <Num label="ดอกเบี้ยเงินกู้ซื้อ/สร้างที่อยู่อาศัย (บาท)" value={mortgage} onChange={setMortgage} cap={100000}
+            hint="สูงสุด 100,000 บาท ตามที่จ่ายจริง"
+            tip="ดอกเบี้ย Home Loan สำหรับที่อยู่อาศัยของตนเอง" />
+          <Num label="ค่าสร้างบ้านใหม่ — ยอดลดหย่อน (บาท)" value={newHouse} onChange={setNewHouse} cap={100000}
+            hint="สัญญาจ้าง 9 เม.ย. 67–31 ธ.ค. 68 | 10,000 บาทต่อทุก 1 ล้านบาทของค่าก่อสร้าง สูงสุด 100,000 บาท (พ.ร.ฎ. ฉ.780)"
+            tip="กรอกยอดที่คำนวณแล้ว เช่น บ้าน 3 ล้าน = ลดหย่อน 30,000 บาท" />
+        </Sec>
+
+        {/* SECTION 2.4 */}
+        <Sec title="หมวด 2.4 · มาตรการกระตุ้นเศรษฐกิจปี 2568">
+          <Num label="Easy E-Receipt 2.0 (บาท)" value={eReceipt} onChange={setEReceipt} cap={50000}
+            hint="ช้อปสินค้า/บริการ 16 ม.ค. – 28 ก.พ. 2568 | ต้องมี e-Tax Invoice หรือ e-Receipt | สูงสุด 50,000 บาท"
+            tip="ซื้อสินค้า/บริการจากผู้ประกอบการที่อยู่ในระบบ e-Tax Invoice" />
+          <div className="mb-3">
+            <label className="block text-sm font-medium text-black mb-1">
+              เที่ยวดีมีคืน 2568 (29 ต.ค. – 15 ธ.ค. 2568)
+              <Tip text="เมืองหลัก ลดหย่อน 1 เท่า สูงสุด 20,000 บาท | เมืองรอง 55 จังหวัด ลดหย่อน 1.5 เท่า สูงสุด 30,000 บาท" />
+            </label>
+            <div className="flex gap-2 mb-2">
+              {[
+                { v: 'main', l: '🏙️ เมืองหลัก (×1, สูงสุด 20,000)' },
+                { v: 'secondary', l: '🌿 เมืองรอง 55 จังหวัด (×1.5, สูงสุด 30,000)' },
+              ].map(opt => (
+                <button key={opt.v} type="button" onClick={() => setTravelType(opt.v)}
+                  className={`flex-1 text-xs py-2 px-1 rounded-lg border transition-colors
+                    ${travelType === opt.v ? 'bg-pink-500 text-white border-pink-500 font-semibold' : 'bg-white text-black border-pink-200 hover:bg-pink-50'}`}>
+                  {opt.l}
+                </button>
+              ))}
+            </div>
+            <Num label="ยอดที่จ่ายจริง (บาท)" value={travelAmt} onChange={setTravelAmt}
+              hint={`ลดหย่อนได้: ฿${fmt(calc.travelD)} (${travelType === 'secondary' ? '×1.5' : '×1'} สูงสุด ${travelType === 'secondary' ? '30,000' : '20,000'} บาท)`} />
+          </div>
+        </Sec>
+
+        {/* SECTION 2.5 */}
+        <Sec title="หมวด 2.5 · เงินบริจาค">
+          <div className="bg-pink-50 border border-pink-100 rounded-lg px-3 py-2 mb-3 text-xs text-gray-600">
+            เพดานรวมเงินบริจาค = 10% ของเงินได้หลังหักค่าใช้จ่ายและลดหย่อน (= <strong>฿{fmt(calc.donCap)}</strong>)
+          </div>
+          <Num label="บริจาคทั่วไป (บาท)" value={don1} onChange={setDon1}
+            hint={`ตามที่จ่ายจริง สูงสุด 10% (= ฿${fmt(calc.donCap)})`}
+            tip="บริจาคให้องค์กรสาธารณกุศล วัด มูลนิธิที่กรมสรรพากรรับรอง" />
+          <Num label="บริจาคเพื่อการศึกษา/กีฬา/สาธารณประโยชน์ (บาท)" value={don2} onChange={setDon2}
+            hint={`ได้ลดหย่อน 2 เท่า | ใช้ได้: ฿${fmt(calc.don2D)} | รวมกับบริจาคทั่วไปไม่เกิน 10%`}
+            tip="บริจาคเพื่อการศึกษา กีฬา สาธารณประโยชน์ ได้ลดหย่อน 2 เท่า (ม.47(7)(ข) และ พ.ร.ฎ. ฉ.420)" />
+        </Sec>
+
+        {/* SECTION 3: Calculation */}
+        <Sec title="หมวด 3 · รายละเอียดการคำนวณทีละขั้น" open={true}>
+          <div className="space-y-0.5">
+            <Row label="(+) รายได้หลัก" value={calc.inc} />
+            {calc.other > 0 && <Row label="(+) รายได้อื่น ๆ" value={calc.other} />}
+            <Row label="รายได้รวม" value={calc.gross} bold />
+            <Row label={`(-) ค่าใช้จ่ายเหมา ${(calc.expRate * 100).toFixed(0)}%`} value={-calc.expD} />
+            <div className="border-t border-pink-100 my-2" />
+            <p className="text-xs font-semibold text-pink-500">ค่าลดหย่อน:</p>
+            <Row label="• ส่วนตัว" value={-calc.personalD} indent />
+            {calc.spouseD > 0 && <Row label="• คู่สมรส" value={-calc.spouseD} indent />}
+            {calc.childrenD > 0 && <Row label={`• บุตร (${Math.floor(toNum(children))} คน)`} value={-calc.childrenD} indent />}
+            {calc.pregnancyD > 0 && <Row label="• ฝากครรภ์/คลอดบุตร" value={-calc.pregnancyD} indent />}
+            {calc.parentsD > 0 && <Row label={`• บิดามารดา (${Math.min(Math.floor(toNum(parents)), 4)} คน)`} value={-calc.parentsD} indent />}
+            {calc.disabledD > 0 && <Row label={`• ผู้พิการ (${Math.floor(toNum(disabledPpl))} คน)`} value={-calc.disabledD} indent />}
+            {calc.lifeHealthD > 0 && <Row label="• ประกันชีวิต + สุขภาพ" value={-calc.lifeHealthD} indent />}
+            {calc.parentHealthD > 0 && <Row label="• ประกันสุขภาพบิดามารดา" value={-calc.parentHealthD} indent />}
+            {calc.annuityFinal > 0 && <Row label="• ประกันชีวิตบำนาญ" value={-calc.annuityFinal} indent />}
+            {calc.socSecD > 0 && <Row label="• ประกันสังคม" value={-calc.socSecD} indent />}
+            {calc.pvdFinal > 0 && <Row label="• PVD" value={-calc.pvdFinal} indent />}
+            {calc.rmfFinal > 0 && <Row label="• RMF" value={-calc.rmfFinal} indent />}
+            {calc.gpfFinal > 0 && <Row label="• กบข." value={-calc.gpfFinal} indent />}
+            {calc.nsfFinal > 0 && <Row label="• กอช." value={-calc.nsfFinal} indent />}
+            {calc.esgD > 0 && <Row label="• Thai ESG/ESGX" value={-calc.esgD} indent />}
+            {calc.mortgageD > 0 && <Row label="• ดอกเบี้ยเงินกู้บ้าน" value={-calc.mortgageD} indent />}
+            {calc.newHouseD > 0 && <Row label="• ค่าสร้างบ้านใหม่" value={-calc.newHouseD} indent />}
+            {calc.eReceiptD > 0 && <Row label="• Easy E-Receipt 2.0" value={-calc.eReceiptD} indent />}
+            {calc.travelD > 0 && <Row label="• เที่ยวดีมีคืน 2568" value={-calc.travelD} indent />}
+            {calc.don1D > 0 && <Row label="• บริจาคทั่วไป" value={-calc.don1D} indent />}
+            {calc.don2D > 0 && <Row label="• บริจาคการศึกษา/กีฬา (×2)" value={-calc.don2D} indent />}
+            <div className="border-t border-pink-200 my-2" />
+            <Row label="(-) ค่าลดหย่อนรวม" value={-calc.totalD} bold />
+            <div className="border-t border-black my-2" />
+            <Row label="(=) เงินได้สุทธิ" value={calc.netInc} highlight />
+            <div className="mt-2" />
+            <Row label="(×) ภาษีตามอัตราขั้นบันได" value={calc.pgTax} />
+            {calc.minTaxUsed && <Row label={`→ ใช้กฎ 0.5% × ฿${fmt(calc.gross)} แทน`} value={calc.finalTax} />}
+            <Row label="(-) ภาษีหัก ณ ที่จ่าย" value={-calc.whtAmt} />
+            <div className="border-t border-black my-2" />
+            <Row label={`(=) ${calc.taxDue > 0 ? 'ภาษีที่ต้องชำระเพิ่ม' : 'ภาษีที่ขอคืนได้'}`}
+              value={Math.abs(calc.taxDue)} bold red={calc.taxDue > 0} green={calc.taxDue < 0} />
+          </div>
+        </Sec>
+
+        {/* Bracket Table */}
+        <Sec title="ตารางอัตราภาษีขั้นบันได (Progressive Tax)">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-pink-100">
+                  <th className="text-left px-2 py-2">ช่วงเงินได้สุทธิ (บาท)</th>
+                  <th className="text-center px-2 py-2">อัตรา</th>
+                  <th className="text-right px-2 py-2">ภาษีในช่วงนี้</th>
+                  <th className="text-right px-2 py-2">ภาษีสะสม</th>
+                </tr>
+              </thead>
+              <tbody>
+                {BRACKETS.map((b, i) => {
+                  const row = calc.bRows.find(r => r.min === b.min);
+                  const isCurrent = calc.netInc > b.min && (b.max === Infinity ? true : calc.netInc <= b.max);
+                  return (
+                    <tr key={i} className={`border-b border-pink-50 ${isCurrent ? 'bg-pink-300 font-bold' : row ? 'bg-pink-50' : 'text-gray-400'}`}>
+                      <td className="px-2 py-1.5">{b.label}</td>
+                      <td className="text-center px-2 py-1.5">{(b.rate * 100).toFixed(0)}%</td>
+                      <td className="text-right px-2 py-1.5">{row ? `฿${fmt(row.t)}` : '—'}</td>
+                      <td className="text-right px-2 py-1.5">{row ? `฿${fmt(row.cum)}` : '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="bg-pink-100 font-bold">
+                  <td colSpan={2} className="px-2 py-2">ภาษีรวม (ขั้นบันได)</td>
+                  <td colSpan={2} className="text-right px-2 py-2">฿{fmt(calc.pgTax)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          {calc.netInc > 0 && <p className="text-xs text-pink-600 mt-2 text-center">ช่องสีชมพูเข้ม = ช่วงที่เงินได้สุทธิของคุณตกอยู่</p>}
+        </Sec>
+
+        {/* Buttons */}
+        <div className="flex gap-3 mt-2 mb-4">
+          <button type="button" onClick={reset}
+            className="flex-1 border-2 border-pink-400 text-pink-600 font-semibold rounded-xl py-3 hover:bg-pink-50 transition-colors text-sm">
+            🔄 รีเซ็ตทั้งหมด
+          </button>
+          <button type="button" onClick={() => setAuth(false)}
+            className="border-2 border-gray-300 text-gray-500 font-semibold rounded-xl py-3 px-5 hover:bg-gray-50 transition-colors text-sm">
+            ออกจากระบบ
+          </button>
+        </div>
+
+        {/* Disclaimer */}
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-8 text-xs text-gray-600 leading-relaxed">
+          <p className="font-semibold text-yellow-700 mb-1">⚠️ ข้อสังเกต / Disclaimer</p>
+          <p>ผลลัพธ์นี้เป็น<strong>การประมาณการเบื้องต้น</strong>เท่านั้น ควรปรึกษานักบัญชีหรือกรมสรรพากรเพื่อความถูกต้องสมบูรณ์</p>
+          <p className="mt-1 text-gray-400">อ้างอิง: ประมวลรัษฎากร ม.40, 47, 48 | พ.ร.ฎ. ฉ.600, 629, 750, 780, 796 | กฎกระทรวง ฉ.126 | แบบ ภ.ง.ด.90/91 ปีภาษี 2568</p>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
